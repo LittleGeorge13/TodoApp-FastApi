@@ -9,14 +9,12 @@ from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from jose import jwt, JWTError
 from fastapi.templating import Jinja2Templates
+from config import settings
 
 router = APIRouter(
     prefix='/auth',
     tags=['auth']
 )
-
-SECRET_KEY = '5VGH358967J34568734R85IFK963409HHFD5Kh9vg4jwf34j98f5f4js97845'
-ALGORITHM = 'HS256'
 
 bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 oauth2_bearer = OAuth2PasswordBearer(tokenUrl='auth/token')
@@ -76,11 +74,11 @@ def create_access_token(username: str, user_id: int, role: str, expires_delta: t
     encode = { "sub": username, "id": user_id, 'role': role }
     expires = datetime.now(timezone.utc) + expires_delta
     encode.update({"exp": expires})
-    return jwt.encode(encode, SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 async def get_current_user(token: Annotated[str, Depends(oauth2_bearer)]):
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         username: str = payload.get('sub')
         user_id: int = payload.get('id')
         user_role: str = payload.get('role')
@@ -123,7 +121,7 @@ async def login_for_access_token(form_data: login_dependency, db: db_dependency)
     valid_user = authenticate_user(username= form_data.username,password= form_data.password,db= db)
 
     if valid_user:
-        token = create_access_token(valid_user.username, valid_user.id, valid_user.role, timedelta(minutes=20))
+        token = create_access_token(valid_user.username, valid_user.id, valid_user.role, timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
         return { 'access_token': token, "token_type": 'bearer' }
     else:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED
